@@ -1,0 +1,318 @@
+---
+title: "Amazon Book Purchase Analysis.Rmd"
+author: "Course Name Redacted - Wilny"
+date: "June 11, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warnings = FALSE)
+```
+
+#### Libraries Used
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(readr)
+```
+
+
+####Reading Data
+```{r}
+#Load Sample Data and Full Data Sets into RStudio
+load(file = 'AmazonFinal1S.RData')
+load(file='AmazonFinal1.RData')
+```
+
+####Merging 2 Datasets into 1
+Assumption is made that same columns carry same objects
+```{r}
+#Checking to make sure my sample data shares some same columns between the two subsets of data.
+#Merging my data subsets once I am sure that when combined, rows will refer to the same "thing"/more complex object.
+identical(Amazon1AS$review_id,Amazon1BS$review_id)
+Amazon1S <- merge(Amazon1AS, Amazon1BS, no.dups = TRUE)
+
+Amazon1S.Working <- Amazon1S
+
+
+#Checking to make sure my full data shares some same columns between the two subsets of data.
+#Merging my data subsets once I am sure that when combined, rows will refer to the same "thing"/more complex object.
+identical(Amazon1A$review_id,Amazon1B$review_id)
+Amazon1 <- merge(Amazon1A, Amazon1B, no.dups = TRUE)
+
+Amazon1.Working <- Amazon1
+```
+
+##1. Please provide us with a statistical summary/review of the star_ratings of the books in your dataset.
+
+###(a) (close-ended question) Please produce the basic summary statistics (i.e., min, mean, median, maximum, standard deviation, IQR) for the star_ratings in your dataset. Please include a brief interpretation of the statistics you chose to use.
+
+####Basic Summary Statistics for star_ratings
+```{r}
+#I create a general function I can use to get the basic statistics summary of a vector/column of numerical data.
+#Notice that I have allowed na.rm=T; Comparing results of my function running with the min/max/mean/median/sd/IQR functions
+#with na.rm=True and False so no different in the actual statistics. Because of this, they were omitted for assurance
+#that NA values will not affect the calculation.
+basicStats <- function(vector)
+{
+statInfo <- c()
+statInfo <- append(statInfo, min(vector, na.rm=T))
+statInfo <- append(statInfo, max(vector, na.rm=T))
+statInfo <- append(statInfo, mean(vector, na.rm=T))
+statInfo <- append(statInfo, median(vector, na.rm=T))
+statInfo <- append(statInfo, sd(vector, na.rm=T))
+statInfo <- append(statInfo, IQR(vector, na.rm=T))
+statInfo
+}
+
+star_ratings.dataFrame <- data.frame(statsReadingFormat <- 
+      c("Minimum", "Maximum", "Mean", "Median", "Standard Deviation", "Interquartile Range"), 
+      star_ratings.Summary <- basicStats(Amazon1$star_rating)
+  )
+
+names(star_ratings.dataFrame) <- c('Key', 'Star Rating')
+kable(star_ratings.dataFrame)
+```
+
+###(b) (close-ended question) For books with at least 100 reviews, please identify the 10 top rated books as determined by and ordered by their mean star_rating (descending, highest rated first), and please also supply their standard deviation and the number of reviews they received.
+
+```{r}
+
+#Filter Test Data
+
+#Shown below is previous attempts to subset the data of only duplicates.
+#AmazonTest <- Amazon1S.Working %>% filter(duplicated(product_reviewedIDs))
+#AmazonTestAlt <- Amazon1S.Working %>% filter(!duplicated(product_reviewedIDs))
+#AmazonTest2<- AmazonTest[order(AmazonTest$product_id),]
+#AmazonModifiedTest <- Amazon1S.Working %>% filter(duplicated(product_reviewedIDs))
+#AmazonModifiedTest2 <- AmazonModifiedTest[(AmazonModifiedTest$product_id) >= 5]
+
+
+#We start by creating a dataframe subset consisting Var1 (our product id) and its
+#frequency of occurrance.
+viewIDCounts <- data.frame(table(Amazon1$product_id))
+
+
+#viewIDCounts  
+
+#This data frame is then modified/cleaned as per question specifications.
+#Books must have at least 100 reviews. Books, designated by product_id
+#are removed if they occur less than 100 times, meaning their Freq < 0
+viewIDCounts <- subset(viewIDCounts, Freq >=  100)
+
+#The subsetted data frame consists of a column vector of product_ids
+#with only >100 instances of occurrance in Amazon1, our main data set.
+#This column vector is stored as a new vector for usage in later functions.
+
+books.GreaterThan100Reviews <- viewIDCounts$Var1
+#viewIDCounts$Var1[1]
+#books.GreaterThan100Reviews
+
+#testFrame <- filter(Amazon1, product_id == books.GreaterThan100Reviews[5])
+#mean(testFrame$star_rating)
+#length(viewIDCounts$Var1)
+
+
+#testFrame <- filter(Amazon1, product_id == books.GreaterThan100Reviews[5])
+#sd(testFrame$star_rating)
+
+#length(books.GreaterThan100Reviews)
+
+
+#We create a function that can find the mean star-rating in Amazon1 of 
+#all instances of product_ids that have >= 100 reviews.
+returnMeanStarRating <- function(vectorOfIDs)
+{
+  avgVector <- c()
+  for (i in 1:length(vectorOfIDs))
+  {
+      tempFrame <- filter(Amazon1, Amazon1$product_id == vectorOfIDs[i])
+      tempAverage <- mean(tempFrame$star_rating)
+      avgVector <- append(avgVector, tempAverage)
+  }
+  return(avgVector)
+  avgVector 
+}
+
+#We create a function that can find the standard deviation of the star-rating value 
+#in Amazon1 for all instances of product_ids that have >= 100 reviews.
+returnSTDVStarRating <- function(vectorOfIDs)
+{
+  sdVector <- c()
+  for (i in 1:length(vectorOfIDs))
+  {
+      tempFrame <- filter(Amazon1, Amazon1$product_id == vectorOfIDs[i])
+      tempAverage <- sd(tempFrame$star_rating)
+      sdVector <- append(sdVector, tempAverage)
+  }
+  return(sdVector)
+  sdVector 
+}
+
+#Store the vectors standard deviations and averages of star-rating value found in
+#our product_ids of >=100 reviews.
+
+
+starSD <- returnSTDVStarRating(books.GreaterThan100Reviews)
+starAverages <-returnMeanStarRating(books.GreaterThan100Reviews)
+
+         
+
+#Store these vectors of SD and mean as new columns in our data frame subset that previously
+#only contained product_ids fitting the minimum review threshold.
+viewIDCounts <- cbind(viewIDCounts, starAverages)
+viewIDCounts <- cbind(viewIDCounts, starSD)
+
+#We have now created a data-frame labeling all books with at least 100 reviews allong their mean star_rating, standard deviation, and review count.
+
+#Now we want only the top 10 rated books of this data-frame, sorted in descending order from the highest rated book. We also want the names of the books.
+
+#The function getting a vector of book names corresponding to the product_id appears as follows.
+returnBookNames <- function(vectorOfIDs)
+{
+  titleVector <- c()
+  for (i in 1:length(vectorOfIDs))
+  {
+      tempFrame <- filter(Amazon1, Amazon1$product_id == vectorOfIDs[i])
+      bookName <- tempFrame$product_title[1]
+      titleVector <- append(titleVector, bookName)
+  }
+  return(titleVector)
+  titleVector 
+}
+#Then we sort our data frame of all books containing >= 100 reviews by decreasing order of mean star_rating.
+sortedViewIDCounts <- viewIDCounts[order(starAverages, decreasing = TRUE),]
+
+#Now to get the top 10 books and acquire their names through our returnBookNames function, which takes the vector of product_ids
+#of our sorted data frame of top 10 highest average star_ratings-earning books.
+top10BookStatistics <- head(sortedViewIDCounts, n = 10)
+bookNamesVector <- returnBookNames(top10BookStatistics$Var1)
+bookNamesVector
+#We then append this vector to our top10BookStatistics data frame to identify the books by name.
+top10BookStatistics <- cbind(top10BookStatistics, bookNamesVector)
+
+#We rename the columns of our data frame for clarity and display it in the knitted HTML. 
+
+```
+
+####Top 10 Rated Books Statistics
+```{r}
+names(top10BookStatistics) <- c('Product ID', 'Number of Reviews', 'Mean Star Rating', 'SD of Star Rating', 'Book Title')
+kable(top10BookStatistics)
+```
+
+###(c) (open-ended portion) This answer would be best presented using some type of table, however, we leave it you to decide how best to present your specific insights on Amazon’s star rating system. If you determine that statistics beyond the ones requested in the close-ended portion are necessary for a complete answer, please go ahead but use your best judgment given the guidelines in the Note section below.
+
+Before obtaining the data regarding the Top 10 Novels, I had already found a basic statistical summary of the data. Interpreting this lead me to believe immediately that the star_ratings I would find in in the data set, prior to searching and subsetting it, would tend to be at the higher, if not highest possible end of the 1:5 scale of star_ratings.
+
+There are a few specific findings that can be pointed out in regards to the basic summary statistics of the data. 
+
+The first as evidenced by the table above, is that the standard deviation of the star_rating variable appears to see a trend of decreases with increasing review counts. This would make sense considering the nature of the standard deviation, that is the measure of distance between the set of values in the data. With an increasing amount of data points, it's more likely (but not absolute), that the typical distance between the data points will diminish. 
+
+Secondly, a very peculiar number can be observed in the median of the star_rating in the entire set of data. The median of star_rating in the entire set of data, Amazon1 is 5, matching the value seen by the max star_rating and far exceeding the value seen by the minimum star_rating. This suggests to me that there is definitely a tendency for users to be generous in regards to the amount of stars they assign to a product, more indicative of positive feelings regarding that product. Although a higher value of star_rating may be good and functional in encouraging further customers, there is something statistically problematic when a median is at the same value as the max value. Amazon itself may suffer as a result of more biased data being generated, causing them to be blind to further insights drawn if there was a better way to gauge public opinion towards a product/book.
+
+
+
+
+####Present specific insights on star ratings
+
+##2. Please construct a graphic/visualization which communicates some aspect of the data which you found interesting or helpful as it relates to the rating. You can create more than one graphic, but it’s better to have one strong graphic than many weak ones.
+###(close-ended portion of this question) Your graphic should be appropriately titled and labeled. Legends are optional if you feel the legend fails to serve a purpose.
+```{r}
+newGraphID <- NULL
+newGraphID <- data.frame(table(Amazon1$product_id))
+newGraphID <- subset(newGraphID, Freq >=  10)
+
+books.AllMajorDupes <- newGraphID$Var1
+newGraphIDMeans <- returnMeanStarRating(books.AllMajorDupes)
+newGraphIDSD <- returnSTDVStarRating(books.AllMajorDupes)
+newGraphID <- cbind(newGraphID, newGraphIDMeans)
+newGraphID <- cbind(newGraphID, newGraphIDSD)
+
+
+ggplot(newGraphID, aes(x=newGraphIDSD, y=newGraphIDMeans) ) +
+geom_hex(color="#FF0000") + 
+ stat_smooth(method = 'lm', aes(x = newGraphIDSD, y = newGraphIDMeans), color='#FF0000') +
+ scale_x_continuous(name="Standard Deviation of Star Rating") +
+ scale_y_continuous(name="Mean Star Rating") +
+ ggtitle('Tracking Star Rating via Mean and Standard Deviation') +
+ theme_dark()
+  
+```
+
+The simple graph above illustrates a strange point. Notice that the light blue hexagons follow a trend whereby they darken with decreasing mean star rating and increasing standard deviation. This trend is further highlighted by a line tracing its general direction, making it easier to notice the inverse correlation between mean star rating and the standard deviation of star rating. Also, "count" represents the number of ratings given at acertain point of Mean Star Rating.
+
+What this could suggest, in real terms, is that the star rating, interpreted as the public opinion of a book, becomes more divisive as the mean star rating goes down. This means that the highest rated books are generally universally agreed upon by most people to receive that score with little conflict.The brighter the shade of the blue, the more concentrated the ratings of in that range of mean and standard deviation of star_rating. This means more shared opinions. While this could suggest popularity and wide appeal of a book, that is not what this data is. This data tracks what is essentially simplified reviews of a novel in discrete, numerical form. 
+
+In other words, only those who feel strongly about a novel would rate it and thus the data does not factor in people with opinions towards the work that can not be simplified into more simple discrete data. This explanation would also help to explain the unusual median value of star_ratings that was found earlier in the project. It only makes sense that the typical scores would lean heavier towards the positive end of the possible spectrum of answers if the people answering were more strongly opinionated about them.
+
+It also helps to explain why a lower amount of people giving a review about a book (represened by darkening hexagons) tends to follow with higher standard deviations. Such opinions tend to differ more drastically when fewer people, who swing towards giving far greater and far lower star ratings.
+
+As a result, this opens up a good question that will be explored in 3. Is there a better way of gauging public opinion towards novels other than just the 1:5 star_rating system. 
+
+#### Graphing Aspect of Data Related to Star_Ratings
+
+
+##3. (open-ended question) There are several aspects of the reviews – for example, the text of the review, the title of the review, the time of the review, the number of other reviews written by a customer and the votes a review and book receives – that are not as actively studied as the ratings. Please select one of these for further exploration – we would like to see how well you are able to work with Amazon’s data to generate insights that would be interesting to upper management at the company. In this question you should:
+###• be able to clearly state an idea that could be shaped into a hypothesis
+###• outline the steps you would need to operationalize this idea
+###• produce some pseudocode based on your ideas (could be combined with the previous step)
+###• (time permitting) implement the R code
+
+####Background
+
+  In this case, I would like to explore the further use of the review string text. I believe that some interesting insights can be found by trying to perform sentiment analysis on the review text and seeing if some calculated opinion score would serve as a better product "review score" than the current star system. Because the text of a review is more nuanced and full of information than an arbitrary [1:5] star metric, it would better serve Amazon to know more precisely what specifically is the public consensus on a product and if it has some specific appeal (opinion of particular interest) that could better be addressed  to market to potential customers. This possible experiment acknowledges the usage of star_rating as a metric through which one can gauge public opinion, but wants to observe if setiment analysis will yield similar trends and be more comprehensive as a metric of public opinion as a result of being derived from review_body data, which was provided by an Amazon consumer who is a member of that public.
+
+####Hypothesis
+
+  It is my belief that the use of setiment analysis data acquired through a break down of the review string text (review_body) would allow for a greater, richer variety of data that could be used to better measure the public opinion towards some novel. Thus, it can replicate the same trends as the star_rating while being clearer and providing more information regarding public opinion of the product. By replacing the star_rating as a metric to gauge public opinions, it is possible to use more descriptive data to create new insights more beneficial to a business like Amazons, such as whether or not there are strong positive/negative, or mild positive/negative, or neither sorts of opinions towards a product.
+
+####Additional Data Needed/Processing
+
+  In order to perform sentiment analysis, we need additional data outside of the one currently provided by Amazon. There are public databases of sentiment lexicons or dictionaries available. What these datasets provide is lists of word alongside properties derived from the words, whether they be simple positive and negative connotations of the word, levels of certainty and uncertainty in speech, or stronger and weaker degrees of feelings.
+  This data is needed so that in reading these strings of reviews, we can break down large strings (review_body) into smaller word chunks (separated by whitespace) that can quantify a measure of sentiment relative to  properties such as (Positive v. Negative) emotion, (Doubtful v. Trusting) feelings, (Extreme  v. Mild) feelings.
+  
+  In order to better look at the data later on, it might also be helpful to sort the Amazon data by product_id by subsets to make the testing of our algorithms relating to sentiment analysis easier later on to see how they perform against star_ratings on a product-to-product basis. Note that the potential experiment in mind to operationalize this idea would rely on the entire dataset regardless. However, there still remains a practical use for those subsets of data by product_id in case a user would like to analyze the data derived from a specific product.
+
+####Potential Experiment
+
+  The goal of this experiment is just to determine if a product review score derived from sentiment analysis would yield more comprehensive trends than just the current star system. For a fairer comparison between a product review score created by the old star_rating variable, we will only include data regarding (Positive v. Negative) feelings in our sentiment analysis. Do recall that the star_rating variable does not explicitly suggest anything about the positive or negativity of opinion regarding a novel. All it is is comprise values 1:5, as inputted by a reviewer. We create a data frame that emphasizes the product_id variable in a row. We also store in the data frame the star_rating data. 
+
+####Metrics to Interpret Collected Data
+
+  The ultimate goal of my sentiment analysis experiment is to prove that the practice of breaking down the review text into multiple discrete components serves just as well, if not better than, the sole usage of the star_rating variable. To this end, I want to prove that a trend in gauging the (Positive v. Negative) feelings, that it is visually more engaging to use the two sets of data to present findings regarding public opinions towards a product. 
+  Let positive and negative feelings be two separate variables to be gauged by a  integer ranges from 0:5. 
+
+####Psuedo-Code
+
+```{r}
+# Load libraries: (dplyr), (tidyr), (ggplot2), (readr)
+# Load Amazon1 data acquired through the combination of data sets in RData file
+# Load a sentiment analysis lexicon dataset into environment.
+# Get a subset of data containing the variables: star_rating, product_idea, review_body [amazonData]
+# 
+# Get a subset of review_body only. [reviewBodyData]
+#   Run an algorithm on review_body column to get a vector of positive sentiment analysis scores.[positiveRating]
+#   RUn an algorithm on review_body column to get a vector of negative sentiment analysis scores.[negativeRating]
+# Append acquired vectors into reviewBodyData as new columns.
+# 
+# Recombine reviewBodyData subset of amazonData into amazonData, removing the duplicate of the review_body.
+# 
+# Acquire a sample of amazonData based on a random selection of 1/4th of the product_ids (non-repeating) in the data set.
+# Graph this data as a matrix of different side by side bargraphs 
+#   where x represents the variables of comparison (positiveRating, negativeRating, star_rating), and y represents the scores under each rating.
+# Observe graph for any sign of a trend between (positiveRating, star_rating) or (negativeRating, star_ratings)
+# 
+# Optionally/Continuing:
+# 
+# Run a chi-squared test between the pairs previously mentioned using the values found in amazonData.
+# Check to see if there are any dependent relations betwee the pairs (positiveRating, star_rating) or (negativeRating, star_ratings)
+# 
+# Draw a conclusion from the results of calculations.
+
+```
+
+
+
